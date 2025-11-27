@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate App Icons</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    canvas { border: 1px solid #ccc; margin: 10px; }
+    button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Generate Teams App Icons</h1>
+  <p>Click the buttons below to download the required icons.</p>
+
+  <h2>Color Icon (192x192)</h2>
+  <canvas id="colorCanvas" width="192" height="192"></canvas>
+  <br>
+  <button onclick="downloadColor()">Download color.png</button>
+
+  <h2>Outline Icon (32x32)</h2>
+  <canvas id="outlineCanvas" width="32" height="32"></canvas>
+  <br>
+  <button onclick="downloadOutline()">Download outline.png</button>
+
+  <script>
+    // Draw color icon (192x192)
+    const colorCanvas = document.getElementById('colorCanvas');
+    const colorCtx = colorCanvas.getContext('2d');
+
+    // Purple background (Teams color)
+    colorCtx.fillStyle = '#6264A7';
+    colorCtx.fillRect(0, 0, 192, 192);
+
+    // White "N" for NAA
+    colorCtx.fillStyle = 'white';
+    colorCtx.font = 'bold 120px Arial';
+    colorCtx.textAlign = 'center';
+    colorCtx.textBaseline = 'middle';
+    colorCtx.fillText('N', 96, 100);
+
+    // Draw outline icon (32x32)
+    const outlineCanvas = document.getElementById('outlineCanvas');
+    const outlineCtx = outlineCanvas.getContext('2d');
+
+    // Transparent background with purple outline
+    outlineCtx.strokeStyle = '#6264A7';
+    outlineCtx.lineWidth = 2;
+    outlineCtx.strokeRect(2, 2, 28, 28);
+
+    // Purple "N"
+    outlineCtx.fillStyle = '#6264A7';
+    outlineCtx.font = 'bold 20px Arial';
+    outlineCtx.textAlign = 'center';
+    outlineCtx.textBaseline = 'middle';
+    outlineCtx.fillText('N', 16, 17);
+
+    function downloadColor() {
+      const link = document.createElement('a');
+      link.download = 'color.png';
+      link.href = colorCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function downloadOutline() {
+      const link = document.createElement('a');
+      link.download = 'outline.png';
+      link.href = outlineCanvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "developer": {
+    "name": "NAA Test",
+    "websiteUrl": "https://YOUR_GITHUB_USERNAME.github.io/naa-test",
+    "privacyUrl": "https://YOUR_GITHUB_USERNAME.github.io/naa-test",
+    "termsOfUseUrl": "https://YOUR_GITHUB_USERNAME.github.io/naa-test"
+  },
+  "name": {
+    "short": "NAA Test",
+    "full": "NAA Authentication Test App"
+  },
+  "description": {
+    "short": "Test NAA authentication on iOS Teams mobile",
+    "full": "A minimal test app to validate Nested App Authentication (NAA) works on iOS Teams mobile before deploying to production."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#6264A7",
+  "staticTabs": [
+    {
+      "entityId": "naatest",
+      "name": "NAA Test",
+      "contentUrl": "https://YOUR_GITHUB_USERNAME.github.io/naa-test/index.html",
+      "websiteUrl": "https://YOUR_GITHUB_USERNAME.github.io/naa-test/index.html",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": [
+    "YOUR_GITHUB_USERNAME.github.io"
+  ],
+  "webApplicationInfo": {
+    "id": "YOUR_AZURE_CLIENT_ID",
+    "resource": "api://YOUR_GITHUB_USERNAME.github.io/YOUR_AZURE_CLIENT_ID"
+  }
+}
