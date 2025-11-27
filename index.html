@@ -131,7 +131,7 @@
     <input type="text" id="clientId" class="config-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
     <div class="config-label">Azure AD Tenant ID:</div>
     <input type="text" id="tenantId" class="config-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-    <button onclick="saveConfig()">Save Configuration</button>
+    <button id="saveBtn">Save Configuration</button>
   </div>
 
   <!-- Environment Detection -->
@@ -175,10 +175,10 @@
   <!-- Actions -->
   <div class="card">
     <h2>Actions</h2>
-    <button id="initBtn" onclick="initializeTeams()">1. Initialize Teams SDK</button>
-    <button id="checkNaaBtn" onclick="checkNAASupport()" disabled>2. Check NAA Support</button>
-    <button id="authBtn" onclick="authenticateWithNAA()" disabled>3. Authenticate with NAA</button>
-    <button onclick="clearLogs()">Clear Logs</button>
+    <button id="initBtn">1. Initialize Teams SDK</button>
+    <button id="checkNaaBtn" disabled>2. Check NAA Support</button>
+    <button id="authBtn" disabled>3. Authenticate with NAA</button>
+    <button id="clearBtn">Clear Logs</button>
   </div>
 
   <!-- Token Result -->
@@ -194,24 +194,60 @@
     <div class="log" id="logContainer"></div>
   </div>
 
-  <!-- Teams SDK -->
+  <!-- Teams SDK (non-module) -->
   <script src="https://res.cdn.office.net/teams-js/2.47.0/js/MicrosoftTeams.min.js"></script>
 
-  <!-- MSAL Browser v3.x (required for NAA - createNestablePublicClientApplication) -->
-  <script src="https://unpkg.com/@azure/msal-browser@3.27.0/lib/msal-browser.min.js"></script>
+  <!-- Load MSAL v3 as ES module and expose to window -->
+  <script type="module">
+    import * as msal from 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/+esm';
+    window.msal = msal;
+    console.log('MSAL v3 loaded:', Object.keys(msal));
+    window.dispatchEvent(new Event('msalLoaded'));
+  </script>
 
+  <!-- Main app logic (waits for MSAL to load) -->
   <script>
-    // State
+    // Wait for MSAL module to load
+    window.addEventListener('msalLoaded', function() {
+      console.log('MSAL ready, initializing app...');
+      initApp();
+    });
+
+    // Fallback if event already fired
+    setTimeout(function() {
+      if (window.msal) {
+        console.log('MSAL detected via timeout');
+        initApp();
+      }
+    }, 2000);
+
+    let appInitialized = false;
     let teamsInitialized = false;
     let naaSupported = false;
     let msalInstance = null;
 
-    // Load config from localStorage
-    function loadConfig() {
+    function initApp() {
+      if (appInitialized) return;
+      appInitialized = true;
+
+      // Load config
       const clientId = localStorage.getItem('naa_test_clientId') || '';
       const tenantId = localStorage.getItem('naa_test_tenantId') || '';
       document.getElementById('clientId').value = clientId;
       document.getElementById('tenantId').value = tenantId;
+
+      // Detect environment
+      detectEnvironment();
+
+      // Setup button handlers
+      document.getElementById('saveBtn').addEventListener('click', saveConfig);
+      document.getElementById('initBtn').addEventListener('click', initializeTeams);
+      document.getElementById('checkNaaBtn').addEventListener('click', checkNAASupport);
+      document.getElementById('authBtn').addEventListener('click', authenticateWithNAA);
+      document.getElementById('clearBtn').addEventListener('click', clearLogs);
+
+      log('Ready. Click "Initialize Teams SDK" to start.');
+      log('Make sure you are running this inside Microsoft Teams!', 'warn');
     }
 
     function saveConfig() {
@@ -229,16 +265,16 @@
       };
     }
 
-    // Logging
-    function log(message, type = 'info') {
+    function log(message, type) {
+      type = type || 'info';
       const container = document.getElementById('logContainer');
       const timestamp = new Date().toLocaleTimeString();
       const entry = document.createElement('div');
-      entry.className = `log-entry ${type}`;
-      entry.textContent = `[${timestamp}] ${message}`;
+      entry.className = 'log-entry ' + type;
+      entry.textContent = '[' + timestamp + '] ' + message;
       container.appendChild(entry);
       container.scrollTop = container.scrollHeight;
-      console.log(`[${type.toUpperCase()}]`, message);
+      console.log('[' + type.toUpperCase() + ']', message);
     }
 
     function clearLogs() {
@@ -246,13 +282,11 @@
       log('Logs cleared', 'info');
     }
 
-    // Update indicator
     function setIndicator(id, status) {
       const indicator = document.getElementById(id);
-      indicator.className = `indicator ${status}`;
+      indicator.className = 'indicator ' + status;
     }
 
-    // Detect environment
     function detectEnvironment() {
       const ua = navigator.userAgent;
       document.getElementById('userAgent').textContent = ua.substring(0, 50) + '...';
@@ -262,16 +296,15 @@
       const isTeamsMobile = /TeamsMobile-iOS|TeamsMobile-Android/.test(ua);
       document.getElementById('teamsMobile').textContent = isTeamsMobile ? 'Yes' : 'No';
 
-      log(`Platform: ${navigator.platform}`);
-      log(`In iframe: ${window !== window.parent}`);
-      log(`Teams Mobile: ${isTeamsMobile}`);
+      log('Platform: ' + navigator.platform);
+      log('In iframe: ' + (window !== window.parent));
+      log('Teams Mobile: ' + isTeamsMobile);
 
       if (isTeamsMobile) {
         log('iOS/Android Teams mobile detected!', 'warn');
       }
     }
 
-    // Initialize Teams SDK
     async function initializeTeams() {
       const btn = document.getElementById('initBtn');
       btn.disabled = true;
@@ -286,30 +319,28 @@
 
         teamsInitialized = true;
         setIndicator('teamsIndicator', 'success');
-        log(`Teams SDK initialized in ${elapsed}ms`, 'success');
+        log('Teams SDK initialized in ' + elapsed + 'ms', 'success');
 
-        // Get context
         try {
           const context = await microsoftTeams.app.getContext();
-          log(`Teams context: ${context.app?.host?.clientType || 'unknown'}`);
-          log(`Tenant: ${context.user?.tenant?.id || 'N/A'}`);
-          log(`User: ${context.user?.userPrincipalName || 'N/A'}`);
+          log('Teams context: ' + (context.app?.host?.clientType || 'unknown'));
+          log('Tenant: ' + (context.user?.tenant?.id || 'N/A'));
+          log('User: ' + (context.user?.userPrincipalName || 'N/A'));
         } catch (ctxErr) {
-          log(`Context error: ${ctxErr.message}`, 'warn');
+          log('Context error: ' + ctxErr.message, 'warn');
         }
 
         document.getElementById('checkNaaBtn').disabled = false;
 
       } catch (error) {
         setIndicator('teamsIndicator', 'error');
-        log(`Teams SDK failed: ${error.message}`, 'error');
+        log('Teams SDK failed: ' + error.message, 'error');
         log('Are you running this inside Microsoft Teams?', 'warn');
       }
 
       btn.disabled = false;
     }
 
-    // Check NAA Support
     async function checkNAASupport() {
       const btn = document.getElementById('checkNaaBtn');
       btn.disabled = true;
@@ -320,7 +351,7 @@
       try {
         if (microsoftTeams.nestedAppAuth && microsoftTeams.nestedAppAuth.isNAAChannelRecommended) {
           naaSupported = await microsoftTeams.nestedAppAuth.isNAAChannelRecommended();
-          log(`isNAAChannelRecommended: ${naaSupported}`, naaSupported ? 'success' : 'warn');
+          log('isNAAChannelRecommended: ' + naaSupported, naaSupported ? 'success' : 'warn');
         } else {
           log('nestedAppAuth API not available in this Teams version', 'warn');
           naaSupported = false;
@@ -331,20 +362,19 @@
           log('NAA is supported! You can use NAA authentication.', 'success');
         } else {
           setIndicator('naaIndicator', 'error');
-          log('NAA not recommended - will try anyway with createNestablePublicClientApplication', 'warn');
+          log('NAA not recommended - will try anyway', 'warn');
         }
 
         document.getElementById('authBtn').disabled = false;
 
       } catch (error) {
         setIndicator('naaIndicator', 'error');
-        log(`NAA check failed: ${error.message}`, 'error');
+        log('NAA check failed: ' + error.message, 'error');
       }
 
       btn.disabled = false;
     }
 
-    // Authenticate with NAA
     async function authenticateWithNAA() {
       const config = getConfig();
 
@@ -353,20 +383,30 @@
         return;
       }
 
+      if (!window.msal) {
+        log('MSAL not loaded yet! Wait a moment and try again.', 'error');
+        return;
+      }
+
+      if (!window.msal.createNestablePublicClientApplication) {
+        log('createNestablePublicClientApplication not found in MSAL!', 'error');
+        log('Available MSAL exports: ' + Object.keys(window.msal).join(', '), 'warn');
+        return;
+      }
+
       const btn = document.getElementById('authBtn');
       btn.disabled = true;
       setIndicator('authIndicator', 'loading');
 
-      log(`Using Client ID: ${config.clientId}`);
-      log(`Using Tenant ID: ${config.tenantId}`);
+      log('Using Client ID: ' + config.clientId);
+      log('Using Tenant ID: ' + config.tenantId);
       log('Creating NAA-enabled MSAL client...');
 
       try {
-        // Create NAA-enabled MSAL instance
-        msalInstance = await msal.createNestablePublicClientApplication({
+        msalInstance = await window.msal.createNestablePublicClientApplication({
           auth: {
             clientId: config.clientId,
-            authority: `https://login.microsoftonline.com/${config.tenantId}`,
+            authority: 'https://login.microsoftonline.com/' + config.tenantId,
             supportsNestedAppAuth: true
           },
           cache: {
@@ -376,9 +416,8 @@
 
         log('NAA MSAL client created successfully', 'success');
 
-        // Try silent first
         const accounts = msalInstance.getAllAccounts();
-        log(`Found ${accounts.length} cached account(s)`);
+        log('Found ' + accounts.length + ' cached account(s)');
 
         let result = null;
 
@@ -391,12 +430,11 @@
             });
             log('Silent token acquisition successful!', 'success');
           } catch (silentErr) {
-            log(`Silent failed: ${silentErr.message}`, 'warn');
+            log('Silent failed: ' + silentErr.message, 'warn');
             log('Will try interactive...', 'info');
           }
         }
 
-        // Interactive if needed
         if (!result) {
           log('Attempting interactive (popup) authentication...');
           log('A popup or consent dialog should appear...', 'info');
@@ -408,20 +446,18 @@
           log('Interactive authentication successful!', 'success');
         }
 
-        // Show result
         setIndicator('authIndicator', 'success');
         showTokenResult(result);
 
       } catch (error) {
         setIndicator('authIndicator', 'error');
-        log(`Authentication failed: ${error.name}`, 'error');
-        log(`Error message: ${error.message}`, 'error');
+        log('Authentication failed: ' + error.name, 'error');
+        log('Error message: ' + error.message, 'error');
 
         if (error.errorCode) {
-          log(`Error code: ${error.errorCode}`, 'error');
+          log('Error code: ' + error.errorCode, 'error');
         }
 
-        // Common error hints
         if (error.message.includes('interaction_in_progress')) {
           log('Hint: Close any open auth popups and try again', 'warn');
         } else if (error.message.includes('redirect')) {
@@ -434,42 +470,30 @@
       btn.disabled = false;
     }
 
-    // Show token result
     function showTokenResult(result) {
       const card = document.getElementById('tokenCard');
       card.style.display = 'block';
 
-      // Decode token
       try {
         const tokenParts = result.accessToken.split('.');
         const payload = JSON.parse(atob(tokenParts[1]));
 
         const claims = document.getElementById('tokenClaims');
-        claims.innerHTML = `
-          <div class="env-item"><span>Name</span><span class="env-value">${payload.name || 'N/A'}</span></div>
-          <div class="env-item"><span>UPN</span><span class="env-value">${payload.upn || payload.preferred_username || 'N/A'}</span></div>
-          <div class="env-item"><span>Tenant</span><span class="env-value">${payload.tid || 'N/A'}</span></div>
-          <div class="env-item"><span>Audience</span><span class="env-value">${payload.aud || 'N/A'}</span></div>
-          <div class="env-item"><span>Expires</span><span class="env-value">${new Date(payload.exp * 1000).toLocaleString()}</span></div>
-        `;
+        claims.innerHTML =
+          '<div class="env-item"><span>Name</span><span class="env-value">' + (payload.name || 'N/A') + '</span></div>' +
+          '<div class="env-item"><span>UPN</span><span class="env-value">' + (payload.upn || payload.preferred_username || 'N/A') + '</span></div>' +
+          '<div class="env-item"><span>Tenant</span><span class="env-value">' + (payload.tid || 'N/A') + '</span></div>' +
+          '<div class="env-item"><span>Audience</span><span class="env-value">' + (payload.aud || 'N/A') + '</span></div>' +
+          '<div class="env-item"><span>Expires</span><span class="env-value">' + new Date(payload.exp * 1000).toLocaleString() + '</span></div>';
 
-        document.getElementById('tokenPreview').textContent =
-          result.accessToken.substring(0, 100) + '...';
+        document.getElementById('tokenPreview').textContent = result.accessToken.substring(0, 100) + '...';
 
         log('Token decoded successfully - check Token Result section', 'success');
 
       } catch (e) {
-        log(`Token decode error: ${e.message}`, 'warn');
+        log('Token decode error: ' + e.message, 'warn');
       }
     }
-
-    // Initialize on load
-    window.onload = function() {
-      loadConfig();
-      detectEnvironment();
-      log('Ready. Click "Initialize Teams SDK" to start.');
-      log('Make sure you are running this inside Microsoft Teams!', 'warn');
-    };
   </script>
 </body>
 </html>
