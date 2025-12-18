@@ -178,6 +178,7 @@
     <button id="initBtn">1. Initialize Teams SDK</button>
     <button id="checkNaaBtn" disabled>2. Check NAA Support</button>
     <button id="authBtn" disabled>3. Authenticate with NAA</button>
+    <button id="clearCacheBtn" style="background: #d32f2f;">Clear All Cache & Accounts</button>
     <button id="clearBtn">Clear Logs</button>
   </div>
 
@@ -244,6 +245,7 @@
       document.getElementById('initBtn').addEventListener('click', initializeTeams);
       document.getElementById('checkNaaBtn').addEventListener('click', checkNAASupport);
       document.getElementById('authBtn').addEventListener('click', authenticateWithNAA);
+      document.getElementById('clearCacheBtn').addEventListener('click', clearAllCache);
       document.getElementById('clearBtn').addEventListener('click', clearLogs);
 
       log('Ready. Click "Initialize Teams SDK" to start.');
@@ -280,6 +282,48 @@
     function clearLogs() {
       document.getElementById('logContainer').innerHTML = '';
       log('Logs cleared', 'info');
+    }
+
+    function clearAllCache() {
+      if (!confirm('This will clear all cached accounts and tokens. You will need to re-authenticate. Continue?')) {
+        return;
+      }
+
+      try {
+        // Clear all localStorage (includes MSAL cache and config)
+        const clientId = document.getElementById('clientId').value;
+        const tenantId = document.getElementById('tenantId').value;
+
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // Restore config
+        document.getElementById('clientId').value = clientId;
+        document.getElementById('tenantId').value = tenantId;
+        if (clientId) localStorage.setItem('naa_test_clientId', clientId);
+        if (tenantId) localStorage.setItem('naa_test_tenantId', tenantId);
+
+        // Reset MSAL instance
+        msalInstance = null;
+
+        // Reset indicators
+        setIndicator('teamsIndicator', '');
+        setIndicator('naaIndicator', '');
+        setIndicator('authIndicator', '');
+
+        // Hide token card
+        document.getElementById('tokenCard').style.display = 'none';
+
+        // Reset button states
+        document.getElementById('checkNaaBtn').disabled = !teamsInitialized;
+        document.getElementById('authBtn').disabled = true;
+
+        log('✅ All cache cleared! MSAL will use fresh authentication.', 'success');
+        log('You can now test with the new Azure AD configuration.', 'success');
+
+      } catch (error) {
+        log('Error clearing cache: ' + error.message, 'error');
+      }
     }
 
     function setIndicator(id, status) {
@@ -418,6 +462,11 @@
 
         const accounts = msalInstance.getAllAccounts();
         log('Found ' + accounts.length + ' cached account(s)');
+
+        if (accounts.length > 0) {
+          log('⚠️  WARNING: Using cached account from previous session', 'warn');
+          log('If you changed Azure AD config, click "Clear All Cache" button first!', 'warn');
+        }
 
         let result = null;
 
